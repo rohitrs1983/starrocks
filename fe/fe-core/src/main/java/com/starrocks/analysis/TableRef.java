@@ -42,6 +42,7 @@ import com.starrocks.common.ErrorCode;
 import com.starrocks.common.ErrorReport;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.io.Writable;
+import com.starrocks.connector.hudi.HudiUtils;
 import com.starrocks.sql.ast.PartitionNames;
 import com.starrocks.sql.parser.NodePosition;
 
@@ -138,6 +139,8 @@ public class TableRef implements ParseNode, Writable {
 
     protected final NodePosition pos;
 
+    private TableSnapshot tableSnapshot;
+
     // END: Members that need to be reset()
     // ///////////////////////////////////////
 
@@ -160,6 +163,11 @@ public class TableRef implements ParseNode, Writable {
 
     public TableRef(TableName name, String alias, PartitionNames partitionNames, ArrayList<Long> tableIds,
                     ArrayList<String> commonHints, NodePosition pos) {
+         this(name, alias, partitionNames, tableIds, commonHints, pos, null);
+    }
+
+    public TableRef(TableName name, String alias, PartitionNames partitionNames, ArrayList<Long> tableIds,
+                    ArrayList<String> commonHints, NodePosition pos, TableSnapshot tableSnapshot) {
         this.pos = pos;
         this.name = name;
         if (alias != null) {
@@ -174,6 +182,7 @@ public class TableRef implements ParseNode, Writable {
         }
         this.commonHints = commonHints;
         isAnalyzed = false;
+        this.tableSnapshot = tableSnapshot;
     }
 
     // Only used to clone
@@ -204,6 +213,7 @@ public class TableRef implements ParseNode, Writable {
         correlatedTupleIds_ = Lists.newArrayList(other.correlatedTupleIds_);
         desc = other.desc;
         isJoinRewrittenFromNotIn = other.isJoinRewrittenFromNotIn;
+        tableSnapshot = (other.tableSnapshot != null) ? new TableSnapshot(other.tableSnapshot) : null;
     }
 
     public PartitionNames getPartitionNames() {
@@ -213,6 +223,24 @@ public class TableRef implements ParseNode, Writable {
     @Override
     public NodePosition getPos() {
         return pos;
+    }
+
+    public TableSnapshot getTableSnapshot() {
+        return tableSnapshot;
+    }
+
+    protected void analyzeTableSnapshot(Analyzer analyzer) throws AnalysisException {
+        if (tableSnapshot == null) {
+            return;
+        }
+        
+        if (this.desc.getTable().isHudiTable()) {
+            try {
+                tableSnapshot.setTime(HudiUtils.formatQueryInstant(tableSnapshot.getTime()));
+            } catch (Exception e) {
+                throw new AnalysisException("Failed to parse hudi timestamp: " + e.getMessage(), e);
+            }
+        }
     }
 
     /**

@@ -441,6 +441,10 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
         throw new NotImplementedException(msg);
     }
 
+    public TableSnapshot getTableSnapshot() {
+        return tableSnapshot;
+    }
+
     public TTableDescriptor toThrift(List<ReferencedPartitionInfo> partitions) {
         return null;
     }
