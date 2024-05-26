@@ -39,6 +39,7 @@ public class RemotePathKey {
         public HoodieTableFileSystemView fsView = null;
         public HoodieTimeline timeline = null;
         public HoodieInstant lastInstant = null;
+        public Optional<String> snapShotTime = Optional.empty();
     }
 
     private HudiContext hudiContext;

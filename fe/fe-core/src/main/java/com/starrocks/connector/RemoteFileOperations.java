@@ -86,6 +86,12 @@ public class RemoteFileOperations {
     }
 
     public List<RemoteFileInfo> getRemoteFiles(List<Partition> partitions, Optional<String> hudiTableLocation, boolean useCache) {
+        RemotePathKey.HudiContext hudiContext = new RemotePathKey.HudiContext();
+        return getRemoteFiles(partitions, hudiTableLocation, true, hudiContext);
+    }
+
+    public List<RemoteFileInfo> getRemoteFiles(List<Partition> partitions, Optional<String> hudiTableLocation,
+                boolean useCache, RemotePathKey.HudiContext hudiContext) {
         Map<RemotePathKey, Partition> pathKeyToPartition = Maps.newHashMap();
         for (Partition partition : partitions) {
             RemotePathKey key = RemotePathKey.of(partition.getFullPath(), isRecursive, hudiTableLocation);
@@ -101,8 +107,6 @@ public class RemoteFileOperations {
         List<RemoteFileInfo> resultRemoteFiles = Lists.newArrayList();
         List<Future<Map<RemotePathKey, List<RemoteFileDesc>>>> futures = Lists.newArrayList();
         List<Map<RemotePathKey, List<RemoteFileDesc>>> result = Lists.newArrayList();
-
-        RemotePathKey.HudiContext hudiContext = new RemotePathKey.HudiContext();
 
         Tracers.count(Tracers.Module.EXTERNAL, HMS_PARTITIONS_REMOTE_FILES, cacheMissSize);
         try (Timer ignored = Tracers.watchScope(Tracers.Module.EXTERNAL, HMS_PARTITIONS_REMOTE_FILES)) {

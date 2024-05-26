@@ -27,6 +27,7 @@ import com.starrocks.connector.ConnectorMetadata;
 import com.starrocks.connector.HdfsEnvironment;
 import com.starrocks.connector.RemoteFileInfo;
 import com.starrocks.connector.RemoteFileOperations;
+import com.starrocks.connector.RemotePathKey;
 import com.starrocks.connector.exception.StarRocksConnectorException;
 import com.starrocks.connector.hive.CacheUpdateProcessor;
 import com.starrocks.connector.hive.HiveMetastoreOperations;
@@ -154,8 +155,11 @@ public class HudiMetadata implements ConnectorMetadata {
                 }
             }
         }
+        RemotePathKey.HudiContext hudiContext = new RemotePathKey.HudiContext();
+        hudiContext.snapShotTime = Optional.of(table.getTableSnapshot().getTime());
 
-        return fileOps.getRemoteFiles(partitions.build(), Optional.of(hmsTbl.getTableLocation()));
+        return fileOps.getRemoteFiles(partitions.build(), Optional.of(hmsTbl.getTableLocation()),
+                hudiContext.snapShotTime.isPresent() ? true : false, hudiContext);
     }
 
     @Override

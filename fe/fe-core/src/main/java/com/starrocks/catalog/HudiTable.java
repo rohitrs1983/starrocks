@@ -29,6 +29,7 @@ import com.google.gson.annotations.SerializedName;
 import com.starrocks.analysis.DescriptorTable;
 import com.starrocks.analysis.Expr;
 import com.starrocks.analysis.LiteralExpr;
+import com.starrocks.analysis.TableSnapshot;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.util.TimeUtils;
 import com.starrocks.connector.RemoteFileDesc;
@@ -110,6 +111,8 @@ public class HudiTable extends Table implements HiveMetaStoreTable {
 
     private HudiTableType tableType;
 
+    private TableSnapshot tableSnapshot;
+
     public HudiTable() {
         super(TableType.HUDI);
     }
@@ -144,6 +147,11 @@ public class HudiTable extends Table implements HiveMetaStoreTable {
 
     public HoodieTableType getTableType() {
         return HoodieTableType.valueOf(hudiProperties.get(HUDI_TABLE_TYPE));
+    }
+
+    @Override
+    public TableSnapshot getTableSnapshot() {
+        return tableSnapshot;
     }
 
     public String getTableLocation() {

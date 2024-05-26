@@ -41,6 +41,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.gson.annotations.SerializedName;
 import com.starrocks.analysis.DescriptorTable.ReferencedPartitionInfo;
+import com.starrocks.analysis.TableSnapshot;
 import com.starrocks.catalog.system.SystemTable;
 import com.starrocks.common.io.Text;
 import com.starrocks.common.io.Writable;
@@ -442,7 +443,8 @@ public class Table extends MetaObject implements Writable, GsonPostProcessable, 
     }
 
     public TableSnapshot getTableSnapshot() {
-        return tableSnapshot;
+        String msg = "The getTableSnapshot() method needs to be implemented.";
+        throw new NotImplementedException(msg);
     }
 
     public TTableDescriptor toThrift(List<ReferencedPartitionInfo> partitions) {
