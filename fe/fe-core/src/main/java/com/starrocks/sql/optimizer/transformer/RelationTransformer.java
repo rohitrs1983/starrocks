@@ -15,6 +15,7 @@
 package com.starrocks.sql.optimizer.transformer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -550,13 +551,20 @@ public class RelationTransformer implements AstVisitor<LogicalPlan, ExpressionMa
         QueryPeriod queryPeriod = node.getQueryPeriod();
         Optional<ConnectorTableVersion> startVersion = Optional.empty();
         Optional<ConnectorTableVersion> endVersion = Optional.empty();
-        if (queryPeriod != null) {
+        Optional<String> snapshotClause = Optional.empty();
+        TableVersionRange tableVersionRange = TableVersionRange.empty();
+        if (queryPeriod != null && Table.TableType.ICEBERG.equals(node.getTable().getType())) {
             QueryPeriod.PeriodType periodType = queryPeriod.getPeriodType();
             startVersion = resolveQueryPeriod(queryPeriod.getStart(), periodType);
             endVersion = resolveQueryPeriod(queryPeriod.getEnd(), periodType);
         }
-        TableVersionRange tableVersionRange = GlobalStateMgr.getCurrentState().getMetadataMgr()
+        if (Table.TableType.ICEBERG.equals(node.getTable().getType())) {
+            tableVersionRange = GlobalStateMgr.getCurrentState().getMetadataMgr()
                 .getTableVersionRange(node.getName().getDb(), node.getTable(), startVersion, endVersion);
+        } else if (Table.TableType.ICEBERG.equals(node.getTable().getType())) {
+            tableVersionRange = TableVersionRange.withSnapshotClause(Optional.ofNullable(
+                    Strings.emptyToNull(queryPeriod.getEnd().get().toString())));
+        }
 
         LogicalScanOperator scanOperator;
         if (node.getTable().isNativeTableOrMaterializedView()) {
@@ -602,7 +610,7 @@ public class RelationTransformer implements AstVisitor<LogicalPlan, ExpressionMa
                     columnMetaToColRefMap, Operator.DEFAULT_LIMIT, partitionPredicate, tableVersionRange);
         } else if (Table.TableType.HUDI.equals(node.getTable().getType())) {
             scanOperator = new LogicalHudiScanOperator(node.getTable(), colRefToColumnMetaMapBuilder.build(),
-                    columnMetaToColRefMap, Operator.DEFAULT_LIMIT, partitionPredicate);
+                    columnMetaToColRefMap, Operator.DEFAULT_LIMIT, partitionPredicate, tableVersionRange);
         } else if (Table.TableType.DELTALAKE.equals(node.getTable().getType())) {
             scanOperator = new LogicalDeltaLakeScanOperator(node.getTable(), colRefToColumnMetaMapBuilder.build(),
                     columnMetaToColRefMap, Operator.DEFAULT_LIMIT, null);

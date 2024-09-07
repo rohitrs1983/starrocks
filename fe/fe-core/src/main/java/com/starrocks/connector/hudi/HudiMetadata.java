@@ -171,12 +171,14 @@ public class HudiMetadata implements ConnectorMetadata {
 
     @Override
     public List<RemoteFileInfo> getRemoteFiles(Table table, GetRemoteFilesParams params) {
+        TableVersionRange version = params.getTableVersionRange();
         List<Partition> partitions = buildGetRemoteFilesPartitions(table, params);
         return fileOps.getRemoteFiles(table, partitions, params);
     }
 
     @Override
     public RemoteFileInfoSource getRemoteFilesAsync(Table table, GetRemoteFilesParams params) {
+        TableVersionRange version = params.getTableVersionRange();
         List<Partition> partitions = buildGetRemoteFilesPartitions(table, params);
         return fileOps.getRemoteFilesAsync(table, partitions, params);
     }

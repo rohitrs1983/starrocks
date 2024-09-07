@@ -18,6 +18,7 @@ import com.google.common.base.Preconditions;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.HudiTable;
 import com.starrocks.catalog.Table;
+import com.starrocks.connector.TableVersionRange;
 import com.starrocks.sql.optimizer.operator.OperatorType;
 import com.starrocks.sql.optimizer.operator.OperatorVisitor;
 import com.starrocks.sql.optimizer.operator.ScanOperatorPredicates;
@@ -35,12 +36,21 @@ public class LogicalHudiScanOperator extends LogicalScanOperator {
                                    Map<Column, ColumnRefOperator> columnMetaToColRefMap,
                                    long limit,
                                    ScalarOperator predicate) {
+        this(table, colRefToColumnMetaMap, columnMetaToColRefMap, limit, predicate, TableVersionRange.empty());
+    }
+
+    public LogicalHudiScanOperator(Table table,
+                                   Map<ColumnRefOperator, Column> colRefToColumnMetaMap,
+                                   Map<Column, ColumnRefOperator> columnMetaToColRefMap,
+                                   long limit,
+                                   ScalarOperator predicate,
+                                   TableVersionRange versionRange) {
         super(OperatorType.LOGICAL_HUDI_SCAN,
                 table,
                 colRefToColumnMetaMap,
                 columnMetaToColRefMap,
                 limit,
-                predicate, null);
+                predicate, null, versionRange);
 
         Preconditions.checkState(table instanceof HudiTable);
         HudiTable hudiTable = (HudiTable) table;

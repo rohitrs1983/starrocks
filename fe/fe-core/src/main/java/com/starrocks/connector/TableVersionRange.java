@@ -27,18 +27,28 @@ import java.util.Optional;
 public class TableVersionRange {
     private final Optional<Long> start;
     private final Optional<Long> end;
+    private final Optional<String> snapshotClause;
 
     public static TableVersionRange empty() {
-        return new TableVersionRange(Optional.empty(), Optional.empty());
+        return new TableVersionRange(Optional.empty(), Optional.empty(), Optional.empty());
     }
 
     public static TableVersionRange withEnd(Optional<Long> end) {
         return new TableVersionRange(Optional.empty(), end);
     }
 
+    public static TableVersionRange withSnapshotClause(Optional<String> snapshotCaluse) {
+        return new TableVersionRange(Optional.empty(), Optional.empty(), snapshotCaluse);
+    }
+
     public TableVersionRange(Optional<Long> start, Optional<Long> end) {
+        this(start, end, Optional.empty());
+    }
+
+    public TableVersionRange(Optional<Long> start, Optional<Long> end, Optional<String> snapshotClause) {
         this.start = start;
         this.end = end;
+        this.snapshotClause = snapshotClause;
     }
 
     public Optional<Long> start() {
@@ -49,8 +59,12 @@ public class TableVersionRange {
         return end;
     }
 
+    public Optional<String> snapshotClause() {
+        return snapshotClause;
+    }
+
     public boolean isEmpty() {
-        return start.isEmpty() && end.isEmpty();
+        return start.isEmpty() && end.isEmpty() && snapshotClause.isEmpty();
     }
 
     @Override
@@ -58,6 +72,7 @@ public class TableVersionRange {
         return new ToStringBuilder(this)
                 .append("start", start)
                 .append("end", end)
+                .append("snapshotClause", snapshotClause)
                 .toString();
     }
 
@@ -72,11 +87,12 @@ public class TableVersionRange {
         }
 
         TableVersionRange that = (TableVersionRange) o;
-        return Objects.equals(start, that.start) && Objects.equals(end, that.end);
+        return Objects.equals(start, that.start) && Objects.equals(end, that.end)
+                && Objects.equals(snapshotClause, that.snapshotClause);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(start, end);
+        return Objects.hash(start, end, snapshotClause);
     }
 }

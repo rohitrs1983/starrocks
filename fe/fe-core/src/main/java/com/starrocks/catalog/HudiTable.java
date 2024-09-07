@@ -321,6 +321,11 @@ public class HudiTable extends Table implements HiveMetaStoreTable {
     }
 
     @Override
+    public boolean isTemporal() {
+        return true;
+    }
+
+    @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder("HudiTable{");
         sb.append("resourceName='").append(resourceName).append('\'');
