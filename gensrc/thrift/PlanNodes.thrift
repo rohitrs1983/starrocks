@@ -79,7 +79,7 @@ enum TPlanNodeType {
   JDBC_SCAN_NODE,
   LAKE_SCAN_NODE,
   NESTLOOP_JOIN_NODE,
-  
+
   STREAM_SCAN_NODE,
   STREAM_JOIN_NODE,
   STREAM_AGG_NODE,
@@ -125,7 +125,7 @@ struct TInternalScanRange {
   6: required string db_name
   7: optional list<TKeyRange> partition_column_ranges
   8: optional string index_name
-  9: optional string table_name 
+  9: optional string table_name
   10: optional i64 partition_id
   11: optional i64 row_count
   // Allow this query to cache remote data on local disks or not.
@@ -197,7 +197,7 @@ struct THdfsProperty {
   2: required string value
 }
 
-struct THdfsProperties {  
+struct THdfsProperties {
   1: optional list<THdfsProperty> properties
   2: optional TObjectStoreType object_store_type
   3: optional string object_store_path
@@ -262,7 +262,7 @@ struct TBrokerScanRangeParams {
     23: optional i64 txn_id
     // number of lines at the start of the file to skip
     24: optional i64 skip_header
-    // specifies whether to remove white space from fields 
+    // specifies whether to remove white space from fields
     25: optional bool trim_space
     // enclose character
     26: optional i8 enclose
@@ -337,7 +337,7 @@ struct THdfsScanRange {
 
     // text file desc
     7: optional Descriptors.TTextFileDesc text_file_desc
-    
+
     // for iceberg table scanrange should contains the full path of file
     8: optional string full_path
 
@@ -392,6 +392,9 @@ struct THdfsScanRange {
 
     // Paimon Deletion Vector File
     27: optional TPaimonDeletionFile paimon_deletion_file
+
+    // min/max value of slots
+    35: optional map<i32, Exprs.TExprMinMaxValue> min_max_values;
 }
 
 struct TBinlogScanRange {
@@ -399,7 +402,7 @@ struct TBinlogScanRange {
   2: optional Types.TTableId table_id
   3: optional Types.TPartitionId partition_id
   4: optional Types.TTabletId tablet_id
-  
+
   // Start offset of binlog consumption
   11: optional Types.TBinlogOffset offset
 }
@@ -415,7 +418,7 @@ struct TScanRange {
 
   // scan range for hdfs
   20: optional THdfsScanRange hdfs_scan_range
-  
+
   30: optional TBinlogScanRange binlog_scan_range
 }
 
@@ -782,13 +785,13 @@ struct TAggregationNode {
   23: optional string sql_aggregate_functions
 
   24: optional i32 agg_func_set_version = 1
-  
+
   // used in query cache
   25: optional list<Exprs.TExpr> intermediate_aggr_exprs
 
   // used in pipeline engine
   26: optional bool interpolate_passthrough = false
-  
+
   27: optional bool use_sort_agg
 
   28: optional bool use_per_bucket_optimize
@@ -1108,7 +1111,7 @@ struct THdfsScanNode {
 
     14: optional bool can_use_any_column;
 
-    15: optional bool can_use_min_max_count_opt;
+    15: optional bool can_use_min_max_opt;
 
     16: optional bool use_partition_column_value_only;
 
@@ -1124,6 +1127,8 @@ struct THdfsScanNode {
     20: optional bool load_column_stats;
 
     22: optional DataCache.TDataCacheOptions datacache_options;
+
+    24: optional bool can_use_count_opt;
 }
 
 struct TProjectNode {
@@ -1161,7 +1166,7 @@ struct TTableFunctionNode {
     5: optional bool fn_result_required
 }
 
-struct TConnectorScanNode {  
+struct TConnectorScanNode {
   1: optional string connector_name
   // // Scan node for hdfs
   // 2: optional THdfsScanNode hdfs_scan_node
@@ -1181,7 +1186,7 @@ struct TBinlogScanNode {
 struct TStreamScanNode {
   // Common fields for all stream-scan nodes
   1: optional Types.StreamSourceType source_type
-  
+
   // Specific scan nodes, distinguished by source_type
   11: optional TBinlogScanNode binlog_scan
   // TODO: othe stream scan nodes
@@ -1197,7 +1202,7 @@ struct TStreamJoinNode {
   // equi-join predicate
   3: optional list<Exprs.TExpr> other_join_conjuncts
   4: optional bool is_push_down
-  
+
   // for profiling
   21: optional string sql_join_predicates
   22: optional string sql_predicates
@@ -1217,7 +1222,7 @@ struct TStreamAggregationNode {
   10: optional Descriptors.TIMTDescriptor agg_result_imt
   11: optional Descriptors.TIMTDescriptor agg_intermediate_imt
   12: optional Descriptors.TIMTDescriptor agg_detail_imt
-  
+
   // For profile attributes' printing: `Grouping Keys` `Aggregate Functions`
   22: optional string sql_grouping_keys
   23: optional string sql_aggregate_functions
@@ -1292,7 +1297,7 @@ struct TPlanNode {
   62: optional TCrossJoinNode cross_join_node;
 
   63: optional TLakeScanNode lake_scan_node;
-  
+
   64: optional TNestLoopJoinNode nestloop_join_node;
 
   // 70 ~ 80 are reserved for stream operators
@@ -1301,7 +1306,7 @@ struct TPlanNode {
   71: optional TStreamJoinNode stream_join_node;
   72: optional TStreamAggregationNode stream_agg_node;
 
-  81: optional TSelectNode select_node; 
+  81: optional TSelectNode select_node;
 }
 
 // A flattened representation of a tree of PlanNodes, obtained by depth-first

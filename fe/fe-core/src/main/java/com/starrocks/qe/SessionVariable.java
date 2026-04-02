@@ -648,6 +648,7 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     public static final String ENABLE_REWRITE_SIMPLE_AGG_TO_META_SCAN = "enable_rewrite_simple_agg_to_meta_scan";
     public static final String ENABLE_REWRITE_SIMPLE_AGG_TO_HDFS_SCAN = "enable_rewrite_simple_agg_to_hdfs_scan";
     public static final String ENABLE_REWRITE_PARTITION_COLUMN_MINMAX = "enable_rewrite_partition_column_minmax";
+    public static final String ENABLE_MIN_MAX_OPTIMIZATION = "enable_min_max_optimization";
     public static final String ENABLE_PRUNE_COMPLEX_TYPES = "enable_prune_complex_types";
     public static final String ENABLE_SUBFIELD_NO_COPY = "enable_subfield_no_copy";
     public static final String ENABLE_PRUNE_COMPLEX_TYPES_IN_UNNEST = "enable_prune_complex_types_in_unnest";
@@ -2064,6 +2065,9 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     @VarAttr(name = ENABLE_COUNT_STAR_OPTIMIZATION, flag = VariableMgr.INVISIBLE)
     private boolean enableCountStarOptimization = true;
 
+    @VarAttr(name = ENABLE_MIN_MAX_OPTIMIZATION)
+    private boolean enableMinMaxOptimization = true;
+
     @VariableMgr.VarAttr(name = WAREHOUSE_NAME, flag = VariableMgr.SESSION_ONLY)
     private String warehouseName = WarehouseManager.DEFAULT_WAREHOUSE_NAME;
 
@@ -2770,7 +2774,6 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
     public void setBigQueryProfileThreshold(String bigQueryProfileThreshold) {
         this.bigQueryProfileThreshold = bigQueryProfileThreshold;
     }
-
 
     // when pipeline engine is enabled
     // in case of pipeline_dop > 0: return pipeline_dop * parallelExecInstanceNum;
@@ -4036,6 +4039,10 @@ public class SessionVariable implements Serializable, Writable, Cloneable {
 
     public void setEnableCountStarOptimization(boolean v) {
         enableCountStarOptimization = v;
+    }
+
+    public boolean isEnableMinMaxOptimization() {
+        return enableMinMaxOptimization;
     }
 
     public boolean isEnablePartitionColumnValueOnlyOptimization() {

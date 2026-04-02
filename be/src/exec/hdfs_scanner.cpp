@@ -525,6 +525,90 @@ void HdfsScannerContext::append_or_update_count_column_to_chunk(ChunkPtr* chunk,
     ck->set_num_rows(1);
 }
 
+void HdfsScannerContext::append_or_update_min_max_column_to_chunk(ChunkPtr* chunk, size_t row_count) {
+    for (SlotDescriptor* slot_desc : not_existed_slots) {
+        auto it = scan_range->min_max_values.find(slot_desc->id());
+        if (it == scan_range->min_max_values.end()) {
+            continue;
+        }
+        const TExprMinMaxValue& min_max_value = it->second;
+        MutableColumnPtr col = create_min_max_value_column(slot_desc, min_max_value, row_count);
+        (*chunk)->append_or_update_column(std::move(col), slot_desc->id());
+    }
+}
+
+MutableColumnPtr HdfsScannerContext::create_min_max_value_column(SlotDescriptor* slot_desc,
+                                                                 const TExprMinMaxValue& value, size_t row_count) {
+    auto col = ColumnHelper::create_column(slot_desc->type(), slot_desc->is_nullable());
+    std::vector<Datum> data;
+    if (value.has_null) {
+        data.emplace_back(kNullDatum);
+    }
+    switch (slot_desc->type().type) {
+#define HANDLE_INT_TYPE(T)                                         \
+    case T: {                                                      \
+        data.emplace_back((RunTimeCppType<T>)value.min_int_value); \
+        data.emplace_back((RunTimeCppType<T>)value.max_int_value); \
+        break;                                                     \
+    }
+#define HANDLE_FLOAT_TYPE(T)                                         \
+    case T: {                                                        \
+        data.emplace_back((RunTimeCppType<T>)value.min_float_value); \
+        data.emplace_back((RunTimeCppType<T>)value.max_float_value); \
+        break;                                                       \
+    }
+        HANDLE_INT_TYPE(TYPE_BOOLEAN);
+        HANDLE_INT_TYPE(TYPE_TINYINT);
+        HANDLE_INT_TYPE(TYPE_SMALLINT);
+        HANDLE_INT_TYPE(TYPE_INT);
+        HANDLE_INT_TYPE(TYPE_BIGINT);
+        HANDLE_FLOAT_TYPE(TYPE_FLOAT);
+        HANDLE_FLOAT_TYPE(TYPE_DOUBLE);
+#undef HANDLE_INT_TYPE
+#undef HANDLE_FLOAT_TYPE
+        // https://iceberg.apache.org/spec/#binary-single-value-serialization
+    case TYPE_DATE:
+        data.emplace_back(DateValue::from_days_since_unix_epoch(value.min_int_value));
+        data.emplace_back(DateValue::from_days_since_unix_epoch(value.max_int_value));
+        break;
+    case TYPE_TIME:
+        data.emplace_back((double)value.min_int_value * 1e-6);
+        data.emplace_back((double)value.max_int_value * 1e-6);
+        break;
+    default:
+        break;
+    }
+
+    // if this is the first split, we use null/min/max order
+    // otherwise, we reverse it. In that way, we can make sure
+    // null/min/max values all output from this file.
+    if (!is_first_split) {
+        std::reverse(data.begin(), data.end());
+    }
+    for (int i = 0; i < data.size() && row_count > 0; i++) {
+        row_count -= 1;
+        if (data[i].is_null()) {
+            col->append_nulls(1);
+        } else {
+            col->append_datum(data[i]);
+        }
+    }
+    if (row_count > 0) {
+        if (!value.all_null) {
+            // the rest values does not matter, so we just copy the first value.
+            // it's noted that we can not use `append_default` here, we can only put null(maybe)/min/max
+            auto col_tail = ColumnHelper::create_column(slot_desc->type(), slot_desc->is_nullable());
+            // if not all null values, then data[1] is the non-null value for sure.
+            col_tail->append_datum(data[1]);
+            col_tail->assign(row_count, 0);
+            col->append(*col_tail);
+        } else {
+            col->append_nulls(row_count);
+        }
+    }
+    return col;
+}
+
 Status HdfsScannerContext::evaluate_on_conjunct_ctxs_by_slot(ChunkPtr* chunk, Filter* filter) {
     size_t chunk_size = (*chunk)->num_rows();
     if (conjunct_ctxs_by_slot.size()) {

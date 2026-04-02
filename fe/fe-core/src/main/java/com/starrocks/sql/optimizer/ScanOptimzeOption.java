@@ -17,6 +17,8 @@ package com.starrocks.sql.optimizer;
 public class ScanOptimzeOption {
     private boolean canUseAnyColumn;
     private boolean canUseMinMaxCountOpt;
+    private boolean canUseMinMaxOpt;
+    private boolean canUseCountOpt;
     private boolean usePartitionColumnValueOnly;
 
     public void setCanUseAnyColumn(boolean v) {
@@ -35,6 +37,22 @@ public class ScanOptimzeOption {
         return canUseMinMaxCountOpt;
     }
 
+    public void setCanUseMinMaxOpt(boolean v) {
+        canUseMinMaxOpt = v;
+    }
+
+    public boolean getCanUseMinMaxOpt() {
+        return canUseMinMaxOpt;
+    }
+
+    public void setCanUseCountOpt(boolean v) {
+        canUseCountOpt = v;
+    }
+
+    public boolean getCanUseCountOpt() {
+        return canUseCountOpt;
+    }
+
     public void setUsePartitionColumnValueOnly(boolean v) {
         this.usePartitionColumnValueOnly = v;
     }
@@ -47,6 +65,8 @@ public class ScanOptimzeOption {
         ScanOptimzeOption opt = new ScanOptimzeOption();
         opt.canUseAnyColumn = this.canUseAnyColumn;
         opt.canUseMinMaxCountOpt = this.canUseMinMaxCountOpt;
+        opt.canUseMinMaxOpt = this.canUseMinMaxOpt;
+        opt.canUseCountOpt = this.canUseCountOpt;
         opt.usePartitionColumnValueOnly = this.usePartitionColumnValueOnly;
         return opt;
     }

@@ -21,7 +21,6 @@ import com.starrocks.catalog.AggregateFunction;
 import com.starrocks.catalog.Column;
 import com.starrocks.catalog.Function;
 import com.starrocks.catalog.FunctionSet;
-import com.starrocks.catalog.IcebergTable;
 import com.starrocks.catalog.Type;
 import com.starrocks.common.AnalysisException;
 import com.starrocks.sql.optimizer.OptExpression;
@@ -162,6 +161,8 @@ public class RewriteSimpleAggToHDFSScanRule extends TransformationRule {
             LOG.warn("Unexpected scan operator: " + scanOperator);
             return null;
         }
+        newMetaScan.setScanOptimzeOption(scanOperator.getScanOptimzeOption());
+        newMetaScan.getScanOptimzeOption().setCanUseCountOpt(true);
         try {
             newMetaScan.setScanOperatorPredicates(scanOperator.getScanOperatorPredicates());
         } catch (AnalysisException e) {
@@ -219,13 +220,6 @@ public class RewriteSimpleAggToHDFSScanRule extends TransformationRule {
         // no predicate on agg operator
         if (aggregationOperator.getPredicate() != null) {
             return false;
-        }
-
-        if (scanOperatorType == OperatorType.LOGICAL_ICEBERG_SCAN) {
-            IcebergTable icebergTable = (IcebergTable) scanOperator.getTable();
-            if (!icebergTable.isUnPartitioned() && !icebergTable.isAllPartitionColumnsAlwaysIdentity()) {
-                return false;
-            }
         }
 
         if (aggregationOperator.getAggregations().isEmpty()) {

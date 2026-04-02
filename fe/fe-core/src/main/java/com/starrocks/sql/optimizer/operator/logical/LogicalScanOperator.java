@@ -117,6 +117,10 @@ public abstract class LogicalScanOperator extends LogicalOperator {
     public ScanOptimzeOption getScanOptimzeOption() {
         return scanOptimzeOption;
     }
+
+    public void setScanOptimzeOption(ScanOptimzeOption scanOptimzeOption) {
+        this.scanOptimzeOption = scanOptimzeOption;
+    }
     // for mark empty partitions/empty tablet
     public boolean isEmptyOutputRows() {
         return false;
