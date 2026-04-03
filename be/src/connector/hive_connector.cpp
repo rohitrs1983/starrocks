@@ -340,8 +340,8 @@ void HiveDataSource::_init_tuples_and_slots(RuntimeState* state) {
     if (hdfs_scan_node.__isset.can_use_any_column) {
         _can_use_any_column = hdfs_scan_node.can_use_any_column;
     }
-    if (hdfs_scan_node.__isset.can_use_min_max_count_opt) {
-        _can_use_min_max_count_opt = hdfs_scan_node.can_use_min_max_count_opt;
+    if (hdfs_scan_node.__isset.can_use_min_max_opt) {
+        _can_use_min_max_count_opt = hdfs_scan_node.can_use_min_max_opt;
     }
     if (hdfs_scan_node.__isset.use_partition_column_value_only) {
         _use_partition_column_value_only = hdfs_scan_node.use_partition_column_value_only;

@@ -297,6 +297,8 @@ struct HdfsScannerContext {
 
     int64_t connector_max_split_size = 0;
 
+    bool is_first_split = true;
+
     // update none_existed_slot
     // update conjunct
     void update_with_none_existed_slot(SlotDescriptor* slot);
@@ -316,6 +318,10 @@ struct HdfsScannerContext {
     // otherwise update partition column in chunk
     void append_or_update_partition_column_to_chunk(ChunkPtr* chunk, size_t row_count);
     void append_or_update_count_column_to_chunk(ChunkPtr* chunk, size_t row_count);
+
+    // append or update min/max statistics column
+    void append_or_update_min_max_column_to_chunk(ChunkPtr* chunk, size_t row_count);
+    ColumnPtr create_min_max_value_column(SlotDescriptor* slot_desc, const TExprMinMaxValue& value, size_t row_count);
 
     // if we can skip this file by evaluating conjuncts of non-existed columns with default value.
     StatusOr<bool> should_skip_by_evaluating_not_existed_slots();
