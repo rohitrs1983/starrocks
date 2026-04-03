@@ -54,6 +54,10 @@ import org.apache.paimon.table.source.DeletionFile;
 import org.apache.paimon.table.source.RawFile;
 import org.apache.paimon.table.source.Split;
 import org.apache.paimon.utils.InstantiationUtil;
+import org.apache.paimon.stats.SimpleStats;
+import org.apache.paimon.data.BinaryArray;
+import com.starrocks.thrift.TExprMinMaxValue;
+import com.starrocks.thrift.TExprNodeType;
 
 import java.util.ArrayList;
 import java.util.Base64;
@@ -156,10 +160,12 @@ public class PaimonScanNode extends ScanNode {
                     if (validFormat) {
                         Optional<List<DeletionFile>> deletionFiles = dataSplit.deletionFiles();
                         for (int i = 0; i < rawFiles.size(); i++) {
+                            DataFileMeta dataFileMeta = dataSplit.dataFiles().get(i);
+                            Map<Integer, TExprMinMaxValue> minMaxValues = extractMinMaxValues(dataFileMeta, tupleDescriptor);
                             if (deletionFiles.isPresent()) {
-                                splitRawFileScanRangeLocations(rawFiles.get(i), deletionFiles.get().get(i));
+                                splitRawFileScanRangeLocations(rawFiles.get(i), deletionFiles.get().get(i), minMaxValues);
                             } else {
-                                splitRawFileScanRangeLocations(rawFiles.get(i), null);
+                                splitRawFileScanRangeLocations(rawFiles.get(i), null, minMaxValues);
                             }
                         }
                     } else {
@@ -237,16 +243,16 @@ public class PaimonScanNode extends ScanNode {
         return tHdfsFileFormat;
     }
 
-    public void splitRawFileScanRangeLocations(RawFile rawFile, @Nullable DeletionFile deletionFile) {
+    public void splitRawFileScanRangeLocations(RawFile rawFile, @Nullable DeletionFile deletionFile, Map<Integer, TExprMinMaxValue> minMaxValues) {
         SessionVariable sv = SessionVariable.DEFAULT_SESSION_VARIABLE;
         long splitSize = sv.getConnectorMaxSplitSize();
         long totalSize = rawFile.length();
         long offset = rawFile.offset();
         boolean needSplit = totalSize > splitSize;
         if (needSplit) {
-            splitScanRangeLocations(rawFile, offset, totalSize, splitSize, deletionFile);
+            splitScanRangeLocations(rawFile, offset, totalSize, splitSize, deletionFile, minMaxValues);
         } else {
-            addRawFileScanRangeLocations(rawFile, deletionFile);
+            addRawFileScanRangeLocations(rawFile, deletionFile, minMaxValues);
         }
     }
 
@@ -254,27 +260,29 @@ public class PaimonScanNode extends ScanNode {
                                         long offset,
                                         long length,
                                         long splitSize,
-                                        @Nullable DeletionFile deletionFile) {
+                                        @Nullable DeletionFile deletionFile,
+                                        Map<Integer, TExprMinMaxValue> minMaxValues) {
         long remainingBytes = length;
         do {
             if (remainingBytes < 2 * splitSize) {
-                addRawFileScanRangeLocations(rawFile, offset + length - remainingBytes, remainingBytes, deletionFile);
+                addRawFileScanRangeLocations(rawFile, offset + length - remainingBytes, remainingBytes, deletionFile, minMaxValues);
                 remainingBytes = 0;
             } else {
-                addRawFileScanRangeLocations(rawFile, offset + length - remainingBytes, splitSize, deletionFile);
+                addRawFileScanRangeLocations(rawFile, offset + length - remainingBytes, splitSize, deletionFile, minMaxValues);
                 remainingBytes -= splitSize;
             }
         } while (remainingBytes > 0);
     }
 
-    private void addRawFileScanRangeLocations(RawFile rawFile, @Nullable DeletionFile deletionFile) {
-        addRawFileScanRangeLocations(rawFile, rawFile.offset(), rawFile.length(), deletionFile);
+    private void addRawFileScanRangeLocations(RawFile rawFile, @Nullable DeletionFile deletionFile, Map<Integer, TExprMinMaxValue> minMaxValues) {
+        addRawFileScanRangeLocations(rawFile, rawFile.offset(), rawFile.length(), deletionFile, minMaxValues);
     }
 
     private void addRawFileScanRangeLocations(RawFile rawFile,
                                               long offset,
                                               long length,
-                                              @Nullable DeletionFile deletionFile) {
+                                              @Nullable DeletionFile deletionFile,
+                                              Map<Integer, TExprMinMaxValue> minMaxValues) {
         TScanRangeLocations scanRangeLocations = new TScanRangeLocations();
 
         THdfsScanRange hdfsScanRange = new THdfsScanRange();
@@ -291,6 +299,10 @@ public class PaimonScanNode extends ScanNode {
             paimonDeletionFile.setOffset(deletionFile.offset());
             paimonDeletionFile.setLength(deletionFile.length());
             hdfsScanRange.setPaimon_deletion_file(paimonDeletionFile);
+        }
+
+        if (minMaxValues != null && !minMaxValues.isEmpty()) {
+            hdfsScanRange.setMin_max_values(minMaxValues);
         }
 
         TScanRange scanRange = new TScanRange();
@@ -435,5 +447,104 @@ public class PaimonScanNode extends ScanNode {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private Map<Integer, TExprMinMaxValue> extractMinMaxValues(DataFileMeta dataFileMeta, TupleDescriptor tupleDescriptor) {
+        Map<Integer, TExprMinMaxValue> minMaxValues = Maps.newHashMap();
+        SimpleStats valueStats = dataFileMeta.valueStats();
+        if (valueStats == null) {
+            return minMaxValues;
+        }
+        BinaryRow minValues = valueStats.minValues();
+        BinaryRow maxValues = valueStats.maxValues();
+        BinaryArray nullCounts = valueStats.nullCounts();
+        if (minValues == null || maxValues == null || nullCounts == null) {
+            return minMaxValues;
+        }
+
+        List<String> fieldNames = paimonTable.getNativeTable().rowType().getFieldNames();
+
+        for (SlotDescriptor slot : tupleDescriptor.getSlots()) {
+            if (!slot.isMaterialized()) {
+                continue;
+            }
+            int idx = fieldNames.indexOf(slot.getColumn().getName());
+            if (idx < 0) {
+                continue;
+            }
+
+            Type type = slot.getColumn().getType();
+            if (!type.isScalarType()) {
+                continue;
+            }
+
+            TExprMinMaxValue minMax = new TExprMinMaxValue();
+            boolean hasNull = nullCounts.getLong(idx) > 0;
+            boolean allNull = nullCounts.getLong(idx) == dataFileMeta.rowCount();
+            minMax.setHas_null(hasNull);
+            minMax.setAll_null(allNull);
+
+            switch (type.getPrimitiveType()) {
+                case TINYINT:
+                    minMax.setType(TExprNodeType.INT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_int_value(minValues.getByte(idx));
+                        minMax.setMax_int_value(maxValues.getByte(idx));
+                    }
+                    break;
+                case SMALLINT:
+                    minMax.setType(TExprNodeType.INT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_int_value(minValues.getShort(idx));
+                        minMax.setMax_int_value(maxValues.getShort(idx));
+                    }
+                    break;
+                case INT:
+                    minMax.setType(TExprNodeType.INT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_int_value(minValues.getInt(idx));
+                        minMax.setMax_int_value(maxValues.getInt(idx));
+                    }
+                    break;
+                case BIGINT:
+                    minMax.setType(TExprNodeType.INT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_int_value(minValues.getLong(idx));
+                        minMax.setMax_int_value(maxValues.getLong(idx));
+                    }
+                    break;
+                case FLOAT:
+                    minMax.setType(TExprNodeType.FLOAT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_float_value(minValues.getFloat(idx));
+                        minMax.setMax_float_value(maxValues.getFloat(idx));
+                    }
+                    break;
+                case DOUBLE:
+                    minMax.setType(TExprNodeType.FLOAT_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_float_value(minValues.getDouble(idx));
+                        minMax.setMax_float_value(maxValues.getDouble(idx));
+                    }
+                    break;
+                case DATE:
+                    minMax.setType(TExprNodeType.DATE_LITERAL);
+                    if (!allNull && !minValues.isNullAt(idx)) {
+                        minMax.setMin_int_value(minValues.getInt(idx));
+                        minMax.setMax_int_value(maxValues.getInt(idx));
+                    }
+                    break;
+                case VARCHAR:
+                case CHAR:
+                    minMax.setType(TExprNodeType.STRING_LITERAL);
+                    break;
+                default:
+                    continue;
+            }
+
+            minMaxValues.put(slot.getId().asInt(), minMax);
+        }
+
+        return minMaxValues;
     }
 }
